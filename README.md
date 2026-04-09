@@ -7,7 +7,7 @@
 
 Measure the true impact of ASO and user acquisition events by training a baseline forecast on historical data, comparing that forecast to actual performance, and quantifying the incremental lift.
 
-The main workflow lives in [`incrementality-analysis-NeuralProphet-1.3.ipynb`](/Users/amoexuba/VS Code/Python/incrementality-analysis/incrementality-analysis-NeuralProphet-1.3.ipynb).
+The main workflow lives in [`incrementality-analysis-NeuralProphet-1.3.ipynb`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality-analysis-NeuralProphet-1.3.ipynb).
 
 ## Table of Contents
 
@@ -51,8 +51,8 @@ It is useful for daily time series such as installs, impressions, downloads, rev
 ## Repository Contents
 
 - [`incrementality-analysis-NeuralProphet-1.3.ipynb`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality-analysis-NeuralProphet-1.3.ipynb): main notebook
-- [`incrementality_result.png`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality_result.png): saved visualization
-- [`incrementality_results.csv`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality_results.csv): exported day-level results
+- [`incrementality_result.png`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality_result.png): saved visualization
+- [`incrementality_results.csv`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality_results.csv): exported day-level results
 
 ## Sample Output
 
@@ -70,7 +70,7 @@ The chart highlights:
 
 ### Exported Results Preview
 
-Example rows from [`incrementality_results.csv`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality_results.csv):
+Example rows from [`incrementality_results.csv`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality_results.csv):
 
 | ds | actual | baseline | lower_95 | upper_95 | lift_abs | lift_pct | period |
 |---|---:|---:|---:|---:|---:|---:|---|
@@ -140,7 +140,7 @@ Supported modes:
 
 ## How to Run
 
-1. Open [`incrementality-analysis-NeuralProphet-1.3.ipynb`](/Users/amoexuba/VS Code/Python/incrementality-analysis/incrementality-analysis-NeuralProphet-1.3.ipynb) in Jupyter or VS Code.
+1. Open [`incrementality-analysis-NeuralProphet-1.3.ipynb`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality-analysis-NeuralProphet-1.3.ipynb) in Jupyter or VS Code.
 2. Run the dependency installation cell.
 3. Keep the synthetic demo data or replace it with your own `ds` and `y` dataset.
 4. Set `EVENT_DATE`, `EVENT_END`, `POST_EVENT_DAYS`, and `MODEL`.
