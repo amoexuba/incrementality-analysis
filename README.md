@@ -36,16 +36,16 @@ It is designed for daily time series such as installs, downloads, impressions, u
 
 ## Repository Contents
 
-- [`incrementality-analysis-app.html`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality-analysis-app.html): standalone interactive HTML app with theme toggle, charts, exports, and synthetic demo data
-- [`incrementality-analysis-NeuralProphet-1.3.ipynb`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality-analysis-NeuralProphet-1.3.ipynb): notebook workflow using `NeuralProphet`
-- [`incrementality_result.png`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality_result.png): example chart output from the notebook
-- [`incrementality_results.csv`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality_results.csv): example exported results
-- [`screenshots/incrementality-app-before-analysis.jpeg`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/screenshots/incrementality-app-before-analysis.jpeg): HTML app before running an analysis
-- [`screenshots/incrementality-app-after-analysis.jpeg`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/screenshots/incrementality-app-after-analysis.jpeg): HTML app after results are generated
+- [`incrementality-analysis-app.html`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality-analysis-app.html): standalone interactive HTML app with theme toggle, charts, exports, and synthetic demo data
+- [`incrementality-analysis-NeuralProphet-1.3.ipynb`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality-analysis-NeuralProphet-1.3.ipynb): notebook workflow using `NeuralProphet`
+- [`incrementality_result.png`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality_result.png): example chart output from the notebook
+- [`incrementality_results.csv`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality_results.csv): example exported results
+- [`screenshots/incrementality-app-before-analysis.jpeg`](https://github.com/amoexuba/incrementality-analysis/blob/main/Incrementality%20HTML%20app%20before%20analysis.jpeg): HTML app before running an analysis
+- [`screenshots/incrementality-app-after-analysis.jpeg`](https://github.com/amoexuba/incrementality-analysis/blob/main/Incrementality%20HTML%20app%20after%20analysis.jpeg): HTML app after results are generated
 
 ## HTML App
 
-The standalone app in [`incrementality-analysis-app.html`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality-analysis-app.html) is a single-file browser UI that runs entirely client-side.
+The standalone app in [`incrementality-analysis-app.html`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality-analysis-app.html) is a single-file browser UI that runs entirely client-side.
 
 ### What it does
 
@@ -70,7 +70,7 @@ The standalone app in [`incrementality-analysis-app.html`](/Users/amoexuba/VS%20
 
 ### HTML App Before Analysis
 
-![Incrementality HTML app before analysis](screenshots/incrementality-app-before-analysis.jpeg)
+![Incrementality HTML app before analysis](Incrementality HTML app after analysis.jpeg)
 
 Before running the model, the interface is organized to make setup fast and readable:
 
@@ -84,7 +84,7 @@ Before running the model, the interface is organized to make setup fast and read
 
 ### HTML App After Analysis
 
-![Incrementality HTML app after analysis](screenshots/incrementality-app-after-analysis.jpeg)
+![Incrementality HTML app after analysis](Incrementality HTML app before analysis.jpeg)
 
 After the analysis runs, the same layout turns into a reporting dashboard:
 
@@ -111,7 +111,7 @@ The notebook and HTML app both visualize:
 
 ## Notebook Workflow
 
-The main notebook lives in [`incrementality-analysis-NeuralProphet-1.3.ipynb`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality-analysis-NeuralProphet-1.3.ipynb).
+The main notebook lives in [`incrementality-analysis-NeuralProphet-1.3.ipynb`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality-analysis-NeuralProphet-1.3.ipynb).
 
 ### Features
 
@@ -197,7 +197,7 @@ Example CSV columns:
 
 ### Standalone HTML App
 
-1. Open [`incrementality-analysis-app.html`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality-analysis-app.html) in a browser.
+1. Open [`incrementality-analysis-app.html`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality-analysis-app.html) in a browser.
 2. Upload your CSV file or click the demo-data option.
 3. Map your date and metric columns if needed.
 4. Set the event window, post-event duration, and model parameters.
@@ -205,7 +205,7 @@ Example CSV columns:
 
 ### Notebook
 
-1. Open [`incrementality-analysis-NeuralProphet-1.3.ipynb`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality-analysis-NeuralProphet-1.3.ipynb) in Jupyter or VS Code.
+1. Open [`incrementality-analysis-NeuralProphet-1.3.ipynb`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality-analysis-NeuralProphet-1.3.ipynb) in Jupyter or VS Code.
 2. Run the dependency installation cell.
 3. Keep the synthetic demo data or replace it with your own `ds` and `y` dataset.
 4. Set the event parameters.
