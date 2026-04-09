@@ -84,7 +84,7 @@ Before running the model, the interface is organized to make setup fast and read
 
 ### HTML App After Analysis
 
-![Incrementality HTML app after analysis](https://github.com/amoexuba/incrementality-analysis/blob/main/Incrementality%20HTML%20app%20before%20analysis.jpeg)
+![Incrementality HTML app after analysis](https://github.com/amoexuba/incrementality-analysis/blob/main/Incrementality%20HTML%20app%20after%20analysis.jpeg)
 
 After the analysis runs, the same layout turns into a reporting dashboard:
 
