@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incrementality Analysis — NeuralProphet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --bg:       #06080f;
+  --s1:       #0d1120;
+  --s2:       #111827;
+  --s3:       #1a2236;
+  --border:   #1e2d45;
+  --border2:  #253550;
+  --text:     #d4ddf5;
+  --muted:    #4d6080;
+  --muted2:   #7a90b8;
+  --accent:   #3b82f6;
+  --accent2:  #f97316;
+  --green:    #22c55e;
+  --red:      #ef4444;
+  --gold:     #ca8a04;
+  --mono:     'JetBrains Mono', monospace;
+  --ui:       'Instrument Sans', sans-serif;
+  --display:  'Syne', sans-serif;
+  --r:        10px;
+  --theme-transition: background .2s, color .2s, border-color .2s;
+}
+
+/* ── Light theme ── */
+[data-theme="light"] {
+  --bg:      #f0f2f8;
+  --s1:      #ffffff;
+  --s2:      #f5f7fc;
+  --s3:      #eaecf5;
+  --border:  #d8dcea;
+  --border2: #bfc5da;
+  --text:    #1a2240;
+  --muted:   #8896b8;
+  --muted2:  #4d5e80;
+  --accent:  #2563eb;
+  --accent2: #ea6a1a;
+  --green:   #16a34a;
+  --red:     #dc2626;
+  --gold:    #b45309;
+}
+[data-theme="light"] .log-box { background: #f8f9fd; }
+[data-theme="light"] .topbar-title { color: #1a2240; }
+[data-theme="light"] .sidebar-logo h1 { color: #1a2240; }
+[data-theme="light"] td { color: #374878; }
+[data-theme="light"] .sig-row .v.pv { color: #1d4ed8; }
+[data-theme="light"] .nav-item:hover { background: rgba(0,0,0,.04); }
+[data-theme="light"] .nav-item.active { background: rgba(37,99,235,.07); }
+[data-theme="light"] input[type="date"],
+[data-theme="light"] input[type="number"],
+[data-theme="light"] select { color-scheme: light; }
+
+/* ── Theme toggle button ── */
+.theme-toggle {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 12px; border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--s2); color: var(--muted2);
+  font-size: 12px; font-weight: 500; font-family: var(--ui);
+  cursor: pointer; transition: all .15s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover { border-color: var(--border2); color: var(--text); }
+.theme-toggle .toggle-track {
+  width: 32px; height: 18px; border-radius: 99px;
+  background: var(--border2);
+  position: relative; transition: background .2s; flex-shrink: 0;
+}
+[data-theme="light"] .theme-toggle .toggle-track { background: var(--accent); }
+.theme-toggle .toggle-thumb {
+  position: absolute; top: 2px; left: 2px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; transition: transform .2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+[data-theme="light"] .theme-toggle .toggle-thumb { transform: translateX(14px); }
+.theme-toggle .toggle-icon { font-size: 13px; line-height: 1; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--ui);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  transition: var(--theme-transition);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--s1); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── Layout ── */
+.app { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+
+/* ── Sidebar ── */
+.sidebar {
+  background: var(--s1);
+  border-right: 1px solid var(--border);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.sidebar-logo {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo h1 {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+}
+.sidebar-logo p {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  font-family: var(--mono);
+}
+.sidebar-nav {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted2);
+  cursor: pointer;
+  transition: all .15s;
+  border-left: 2px solid transparent;
+}
+.nav-item:hover { color: var(--text); background: rgba(255,255,255,.03); }
+.nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(59,130,246,.06); }
+.nav-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--muted); flex-shrink: 0;
+  transition: background .15s;
+}
+.nav-item.active .nav-dot { background: var(--accent); }
+.nav-item.done .nav-dot { background: var(--green); }
+.nav-item.done { color: var(--muted2); }
+
+.sidebar-controls { padding: 16px; flex: 1; }
+.ctrl-section { margin-bottom: 20px; }
+.ctrl-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--muted);
+  margin-bottom: 10px;
+  display: block;
+}
+.ctrl-group { display: flex; flex-direction: column; gap: 8px; }
+.ctrl-row { display: flex; flex-direction: column; gap: 4px; }
+.ctrl-row label { font-size: 11.5px; color: var(--muted2); }
+input[type="date"], input[type="number"], select {
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 7px 10px;
+  width: 100%;
+  outline: none;
+  transition: border-color .15s;
+  -webkit-appearance: none;
+}
+input:focus, select:focus { border-color: var(--accent); }
+select option { background: var(--s2); }
+
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 16px; border-radius: 8px; border: none;
+  font-family: var(--ui); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .2s; width: 100%;
+}
+.btn-primary {
+  background: var(--accent); color: #fff;
+}
+.btn-primary:hover { background: #2563eb; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(59,130,246,.35); }
+.btn-primary:active { transform: none; }
+.btn-primary:disabled { background: var(--border2); color: var(--muted); cursor: not-allowed; transform: none; box-shadow: none; }
+.btn-secondary {
+  background: var(--s3); color: var(--muted2); border: 1px solid var(--border);
+}
+.btn-secondary:hover { border-color: var(--border2); color: var(--text); }
+.btn-secondary:disabled { opacity: .4; cursor: not-allowed; }
+
+.spinner {
+  width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.2);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin .7s linear infinite; display: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Main ── */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Topbar ── */
+.topbar {
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.topbar-title { font-family: var(--display); font-size: 18px; font-weight: 700; color: #fff; }
+.topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.export-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 7px; border: 1px solid var(--border);
+  background: var(--s2); color: var(--muted2);
+  font-size: 12px; font-weight: 500; font-family: var(--ui);
+  cursor: pointer; transition: all .15s;
+}
+.export-btn:hover { border-color: var(--border2); color: var(--text); }
+.export-btn:disabled { opacity: .3; cursor: not-allowed; }
+.export-btn svg { width: 14px; height: 14px; }
+
+/* ── Content area ── */
+.content { padding: 28px; display: flex; flex-direction: column; gap: 24px; flex: 1; }
+
+/* ── Cards ── */
+.card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.card-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--s2);
+}
+.card-title {
+  font-family: var(--display);
+  font-size: 13px; font-weight: 700;
+  color: var(--text); letter-spacing: -.01em;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-badge {
+  font-family: var(--mono);
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); background: var(--s3);
+  border: 1px solid var(--border);
+  padding: 2px 8px; border-radius: 99px;
+}
+.card-body { padding: 20px; }
+
+/* ── Upload zone ── */
+.upload-zone {
+  border: 2px dashed var(--border2);
+  border-radius: 8px;
+  padding: 40px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  position: relative;
+}
+.upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(59,130,246,.04); }
+.upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.upload-icon { font-size: 32px; margin-bottom: 10px; }
+.upload-title { font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.upload-sub { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.upload-sub code {
+  background: var(--s3); border: 1px solid var(--border);
+  padding: 1px 5px; border-radius: 3px;
+  font-family: var(--mono); font-size: 11px; color: var(--accent2);
+}
+
+/* ── Data preview table ── */
+.table-wrap { overflow-x: auto; max-height: 220px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: var(--mono); }
+th {
+  background: var(--s3); color: var(--muted2); font-weight: 600;
+  padding: 7px 12px; text-align: left; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; white-space: nowrap;
+}
+td {
+  padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,.03);
+  color: #8faacc; white-space: nowrap;
+}
+tr:hover td { background: rgba(255,255,255,.02); }
+
+/* ── Column mapping ── */
+.col-map {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+.col-map-item { display: flex; flex-direction: column; gap: 5px; }
+.col-map-item label { font-size: 12px; color: var(--muted2); }
+
+/* ── Stats grid ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.stat-card {
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.stat-card .lbl {
+  font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--muted); margin-bottom: 6px;
+  font-family: var(--mono);
+}
+.stat-card .val {
+  font-family: var(--display);
+  font-size: 22px; font-weight: 700;
+  color: var(--text); line-height: 1;
+}
+.stat-card .val.pos { color: var(--green); }
+.stat-card .val.neg { color: var(--red); }
+.stat-card .val.info { color: var(--accent); }
+.stat-card .sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* ── Sig blocks ── */
+.sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; }
+.sig-panel {
+  background: var(--s2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px;
+}
+.sig-panel .title {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .1em;
+  color: var(--gold); margin-bottom: 12px;
+}
+.sig-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.sig-row .k { font-size: 12px; color: var(--muted2); }
+.sig-row .v { font-family: var(--mono); font-size: 13px; color: var(--text); font-weight: 500; }
+.sig-row .v.pos { color: var(--green); }
+.sig-row .v.pv  { color: #60a5fa; }
+.sig-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700; padding: 2px 8px;
+  border-radius: 99px; background: rgba(34,197,94,.1);
+  color: var(--green); border: 1px solid rgba(34,197,94,.2);
+  margin-top: 4px;
+}
+.sig-tag.not {
+  background: rgba(239,68,68,.1); color: var(--red);
+  border-color: rgba(239,68,68,.2);
+}
+
+/* ── Chart ── */
+.chart-wrap { position: relative; width: 100%; }
+.chart-wrap-main { height: 320px; min-height: 320px; }
+.chart-wrap-lift { height: 160px; min-height: 160px; }
+.chart-canvas { width: 100% !important; }
+
+/* ── Log ── */
+.log-box {
+  background: #050810;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+  max-height: 180px;
+  overflow-y: auto;
+  color: var(--muted2);
+}
+.log-box .log-ok  { color: var(--green); }
+.log-box .log-inf { color: var(--accent); }
+.log-box .log-wrn { color: var(--gold); }
+.log-box .log-err { color: var(--red); }
+
+/* ── Progress ── */
+.progress-wrap { background: var(--s3); border-radius: 99px; height: 4px; overflow: hidden; margin-top: 6px; }
+.progress-bar { height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s ease; width: 0; }
+
+/* ── Empty state ── */
+.empty {
+  text-align: center; padding: 48px 24px;
+  color: var(--muted); font-size: 13px; line-height: 1.8;
+}
+.empty .icon { font-size: 36px; margin-bottom: 12px; }
+
+/* ── Alert ── */
+.alert {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 12px 16px; border-radius: 8px; font-size: 13px;
+  border: 1px solid;
+}
+.alert.info  { background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.25); color: #93c5fd; }
+.alert.warn  { background: rgba(234,179,8,.08);  border-color: rgba(234,179,8,.25);  color: #fde047; }
+.alert.error { background: rgba(239,68,68,.08);  border-color: rgba(239,68,68,.25);  color: #fca5a5; }
+.alert.ok    { background: rgba(34,197,94,.08);  border-color: rgba(34,197,94,.25);  color: #86efac; }
+
+/* ── Demo badge ── */
+.demo-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(234,179,8,.1); border: 1px solid rgba(234,179,8,.2);
+  color: var(--gold); font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: 99px; font-family: var(--mono);
+}
+
+/* ── Responsive ── */
+@media(max-width:860px){
+  .app { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; }
+  .sig-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .chart-wrap-main { height: 280px; min-height: 280px; }
+  .chart-wrap-lift { height: 150px; min-height: 150px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ══════════ SIDEBAR ══════════ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h1>Incrementality<br>Analysis</h1>
+    <p>NeuralProphet · JS port</p>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-item active" id="nav-data" onclick="scrollTo('sec-data')">
+      <span class="nav-dot"></span> Data source
+    </div>
+    <div class="nav-item" id="nav-event" onclick="scrollTo('sec-event')">
+      <span class="nav-dot"></span> Event config
+    </div>
+    <div class="nav-item" id="nav-model" onclick="scrollTo('sec-model')">
+      <span class="nav-dot"></span> Model params
+    </div>
+    <div class="nav-item" id="nav-results" onclick="scrollTo('sec-results')">
+      <span class="nav-dot"></span> Results
+    </div>
+  </nav>
+
+  <div class="sidebar-controls">
+    <!-- Event config -->
+    <div class="ctrl-section">
+      <span class="ctrl-label">Event window</span>
+      <div class="ctrl-group">
+        <div class="ctrl-row">
+          <label>Event start date</label>
+          <input type="date" id="cfg-event-start" value="2024-11-05">
+        </div>
+        <div class="ctrl-row">
+          <label>Event end date</label>
+          <input type="date" id="cfg-event-end" value="2024-11-12">
+        </div>
+        <div class="ctrl-row">
+          <label>Post-event days to measure</label>
+          <input type="number" id="cfg-post-days" value="31" min="1" max="365">
+        </div>
+      </div>
+    </div>
+
+    <!-- Model config -->
+    <div class="ctrl-section">
+      <span class="ctrl-label">Model</span>
+      <div class="ctrl-group">
+        <div class="ctrl-row">
+          <label>Mode</label>
+          <select id="cfg-model">
+            <option value="extrapolation">Extrapolation (long-term)</option>
+            <option value="interpolation">Interpolation (short-term)</option>
+          </select>
+        </div>
+        <div class="ctrl-row">
+          <label>Trend changepoints</label>
+          <input type="number" id="cfg-changepoints" value="10" min="2" max="30">
+        </div>
+        <div class="ctrl-row">
+          <label>Fourier order (yearly)</label>
+          <input type="number" id="cfg-fourier-yearly" value="10" min="2" max="20">
+        </div>
+        <div class="ctrl-row">
+          <label>Fourier order (weekly)</label>
+          <input type="number" id="cfg-fourier-weekly" value="3" min="1" max="6">
+        </div>
+        <div class="ctrl-row">
+          <label>CI level</label>
+          <select id="cfg-ci">
+            <option value="0.95">95%</option>
+            <option value="0.90">90%</option>
+            <option value="0.80">80%</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Run -->
+    <div class="ctrl-section">
+      <button class="btn btn-primary" id="btn-run" onclick="runAnalysis()">
+        <svg id="run-spinner" class="spinner" viewBox="0 0 24 24"></svg>
+        <span id="btn-run-label">▶ Run Analysis</span>
+      </button>
+      <div class="progress-wrap" style="margin-top:10px">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ══════════ MAIN ══════════ -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">Incrementality Analysis</div>
+    <div class="topbar-actions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn" title="Toggle light/dark theme">
+        <span class="toggle-icon" id="theme-icon">🌙</span>
+        <div class="toggle-track"><div class="toggle-thumb"></div></div>
+        <span id="theme-label">Dark</span>
+      </button>
+      <button class="export-btn" id="btn-export-png" disabled onclick="exportPNG()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12l4 4 4-4M12 8v8"/></svg>
+        Export chart PNG
+      </button>
+      <button class="export-btn" id="btn-export-csv" disabled onclick="exportCSV()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Export results CSV
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── Data source ── -->
+    <div class="card" id="sec-data">
+      <div class="card-header">
+        <span class="card-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Data Source
+        </span>
+        <span class="card-badge" id="data-badge">No data</span>
+      </div>
+      <div class="card-body">
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" accept=".csv,.tsv,.txt" onchange="handleFile(event)" id="file-input">
+          <div class="upload-icon">📂</div>
+          <div class="upload-title">Drop CSV file here or click to browse</div>
+          <div class="upload-sub">
+            Expects columns: <code>ds</code> (date) and <code>y</code> (metric)<br>
+            Or map your own column names below · Supports App Store Connect, AppTweak, Play Console exports
+          </div>
+        </div>
+
+        <div id="col-map-wrap" style="display:none">
+          <div class="col-map">
+            <div class="col-map-item">
+              <label>Date column (→ ds)</label>
+              <select id="col-ds"></select>
+            </div>
+            <div class="col-map-item">
+              <label>Metric column (→ y)</label>
+              <select id="col-y"></select>
+            </div>
+          </div>
+          <button class="btn btn-secondary" style="margin-top:12px;width:auto;padding:7px 14px;font-size:12px" onclick="applyColumnMap()">Apply column mapping</button>
+        </div>
+
+        <div id="data-preview" style="display:none; margin-top:16px">
+          <div class="table-wrap" id="preview-table"></div>
+        </div>
+
+        <div style="margin-top:14px">
+          <button class="btn btn-secondary" onclick="useDemo()" style="width:auto;padding:8px 16px;gap:6px;font-size:12px">
+            🎲 Use synthetic demo data (2022–2025)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Log ── -->
+    <div class="card" id="sec-event">
+      <div class="card-header">
+        <span class="card-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Run Log
+        </span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div class="log-box" id="log-box">
+          <span class="log-inf">Ready. Load data and configure parameters, then click ▶ Run Analysis.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Results ── -->
+    <div id="sec-results">
+      <div class="card" id="results-area">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Results
+          </span>
+          <span class="card-badge" id="results-badge">Pending</span>
+        </div>
+        <div class="card-body" id="results-body">
+          <div class="empty">
+            <div class="icon">📊</div>
+            Results will appear here after running the analysis.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ══════════════════════════════════════════════════════
+//  THEME TOGGLE
+// ══════════════════════════════════════════════════════
+let currentTheme = localStorage.getItem('theme') || 'dark';
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : '');
+  const icon  = document.getElementById('theme-icon');
+  const label = document.getElementById('theme-label');
+  if (theme === 'light') {
+    icon.textContent  = '☀️';
+    label.textContent = 'Light';
+  } else {
+    icon.textContent  = '🌙';
+    label.textContent = 'Dark';
+  }
+  currentTheme = theme;
+  localStorage.setItem('theme', theme);
+  // Re-render charts with new palette if results exist
+  if (analysisResult && document.getElementById('chart-main') && document.getElementById('chart-lift')) {
+    requestAnimationFrame(() => buildChart(analysisResult));
+  }
+}
+
+function toggleTheme() {
+  applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+}
+
+// ══════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════
+let dfFull = null;       // [{ds: Date, y: number}]
+let rawRows = null;
+let rawHeaders = [];
+let chartInstance = null;
+let liftChartInstance = null;
+let analysisResult = null;
+let isDemoMode = false;
+
+// Apply saved theme on load (after state vars are declared)
+applyTheme(currentTheme);
+
+// ══════════════════════════════════════════════════════
+//  LOGGING
+// ══════════════════════════════════════════════════════
+function log(msg, cls='') {
+  const box = document.getElementById('log-box');
+  const ts = new Date().toLocaleTimeString('en-US',{hour12:false});
+  const line = document.createElement('div');
+  line.innerHTML = `<span style="color:var(--muted)">[${ts}]</span> <span class="${cls?'log-'+cls:''}">${msg}</span>`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+function clearLog() {
+  document.getElementById('log-box').innerHTML = '';
+}
+
+// ══════════════════════════════════════════════════════
+//  PROGRESS
+// ══════════════════════════════════════════════════════
+function setProgress(p) {
+  document.getElementById('progress-bar').style.width = p + '%';
+}
+
+// ══════════════════════════════════════════════════════
+//  SCROLL NAV
+// ══════════════════════════════════════════════════════
+function scrollTo(id) {
+  document.getElementById(id)?.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ══════════════════════════════════════════════════════
+//  DRAG & DROP
+// ══════════════════════════════════════════════════════
+const zone = document.getElementById('upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) parseFile(f);
+});
+
+function handleFile(evt) { parseFile(evt.target.files[0]); }
+
+// ══════════════════════════════════════════════════════
+//  FILE PARSING
+// ══════════════════════════════════════════════════════
+function parseFile(file) {
+  log(`Parsing: ${file.name} (${(file.size/1024).toFixed(1)} KB)`, 'inf');
+  Papa.parse(file, {
+    header: true, skipEmptyLines: true, dynamicTyping: true,
+    complete(results) {
+      rawHeaders = results.meta.fields || [];
+      rawRows = results.data;
+      log(`Loaded ${rawRows.length} rows, columns: ${rawHeaders.join(', ')}`, 'ok');
+      populateColMap(rawHeaders);
+      applyColumnMap();
+    },
+    error(err) { log('Parse error: ' + err.message, 'err'); }
+  });
+}
+
+function populateColMap(headers) {
+  const selDs = document.getElementById('col-ds');
+  const selY  = document.getElementById('col-y');
+  [selDs, selY].forEach(s => { s.innerHTML = ''; });
+  headers.forEach(h => {
+    selDs.innerHTML += `<option value="${h}" ${/^ds$|date|day|time/i.test(h)?'selected':''}>${h}</option>`;
+    selY.innerHTML  += `<option value="${h}" ${/^y$|install|unit|download|metric|count|revenue|impres/i.test(h)?'selected':''}>${h}</option>`;
+  });
+  document.getElementById('col-map-wrap').style.display = 'block';
+}
+
+function applyColumnMap() {
+  if (!rawRows) return;
+  const dsCol = document.getElementById('col-ds').value;
+  const yCol  = document.getElementById('col-y').value;
+  dfFull = rawRows.map(r => {
+    const d = new Date(r[dsCol]);
+    const y = parseFloat(r[yCol]);
+    return isNaN(d.getTime()) || isNaN(y) ? null : {ds: d, y};
+  }).filter(Boolean).sort((a,b) => a.ds - b.ds);
+  log(`Column mapping: ds=${dsCol}, y=${yCol} → ${dfFull.length} valid rows`, 'ok');
+  isDemoMode = false;
+  renderPreview();
+  updateDataBadge();
+}
+
+function renderPreview() {
+  if (!dfFull) return;
+  const wrap = document.getElementById('data-preview');
+  const rows = dfFull.slice(-8);
+  let html = '<table><thead><tr><th>#</th><th>ds</th><th>y</th></tr></thead><tbody>';
+  rows.forEach((r, i) => {
+    html += `<tr><td>${dfFull.length - rows.length + i}</td><td>${r.ds.toISOString().slice(0,10)}</td><td>${r.y.toLocaleString()}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('preview-table').innerHTML = html;
+  wrap.style.display = 'block';
+}
+
+function updateDataBadge() {
+  const badge = document.getElementById('data-badge');
+  if (!dfFull) { badge.textContent = 'No data'; return; }
+  const dateMin = dfFull[0].ds.toISOString().slice(0,10);
+  const dateMax = dfFull[dfFull.length-1].ds.toISOString().slice(0,10);
+  badge.textContent = `${dfFull.length} rows · ${dateMin} → ${dateMax}`;
+}
+
+// ══════════════════════════════════════════════════════
+//  DEMO DATA
+// ══════════════════════════════════════════════════════
+function useDemo() {
+  log('Generating synthetic demo data (2022-01-01 → 2025-01-31, event lift +79%)...', 'inf');
+  const dates = dateRange('2022-01-01', '2025-01-31');
+  const n = dates.length;
+  const eventDate = new Date('2024-11-05');
+  const eventEnd  = new Date('2024-11-05');
+  eventEnd.setDate(eventEnd.getDate() + 30);
+  dfFull = dates.map((d, i) => {
+    const trend  = 1000 + (500 * i / n);
+    const weekly = 150 * Math.sin(2 * Math.PI * i / 7);
+    const yearly = 200 * Math.sin(2 * Math.PI * i / 365);
+    const noise  = randn() * 80;
+    let y = trend + weekly + yearly + noise;
+    if (d >= eventDate && d <= eventEnd) y *= 1.79;
+    return { ds: d, y: Math.max(0, Math.round(y)) };
+  });
+  isDemoMode = true;
+  rawRows = null;
+  document.getElementById('col-map-wrap').style.display = 'none';
+  renderPreview();
+  updateDataBadge();
+  log(`Demo data ready: ${dfFull.length} days`, 'ok');
+}
+
+function randn() {
+  let u = 0, v = 0;
+  while(!u) u = Math.random();
+  while(!v) v = Math.random();
+  return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+}
+
+function dateRange(start, end) {
+  const dates = [], cur = new Date(start), e = new Date(end);
+  while (cur <= e) { dates.push(new Date(cur)); cur.setDate(cur.getDate()+1); }
+  return dates;
+}
+
+// ══════════════════════════════════════════════════════
+//  MATRIX MATH (for ridge regression)
+// ══════════════════════════════════════════════════════
+function matMul(A, B) {
+  const r=A.length, c=B[0].length, k=B.length;
+  const C = Array.from({length:r}, ()=>new Array(c).fill(0));
+  for(let i=0;i<r;i++) for(let j=0;j<c;j++) for(let l=0;l<k;l++) C[i][j]+=A[i][l]*B[l][j];
+  return C;
+}
+function matT(A) {
+  const r=A.length, c=A[0].length;
+  const T = Array.from({length:c}, ()=>new Array(r).fill(0));
+  for(let i=0;i<r;i++) for(let j=0;j<c;j++) T[j][i]=A[i][j];
+  return T;
+}
+function matAdd(A, B) { return A.map((r,i)=>r.map((v,j)=>v+B[i][j])); }
+// Gaussian elimination for square system Ax=b
+function solve(A, b) {
+  const n = A.length;
+  const M = A.map((r,i) => [...r, b[i]]);
+  for(let c=0;c<n;c++){
+    let max=c;
+    for(let r=c+1;r<n;r++) if(Math.abs(M[r][c])>Math.abs(M[max][c])) max=r;
+    [M[c],M[max]]=[M[max],M[c]];
+    for(let r=c+1;r<n;r++){
+      const f=M[r][c]/M[c][c];
+      for(let j=c;j<=n;j++) M[r][j]-=f*M[c][j];
+    }
+  }
+  const x=new Array(n).fill(0);
+  for(let i=n-1;i>=0;i--){
+    x[i]=M[i][n];
+    for(let j=i+1;j<n;j++) x[i]-=M[i][j]*x[j];
+    x[i]/=M[i][i];
+  }
+  return x;
+}
+
+// ══════════════════════════════════════════════════════
+//  FEATURE BUILDER (trend + Fourier seasonality)
+// ══════════════════════════════════════════════════════
+function buildFeatures(dates, nChangepoints, fyOrder, fwOrder, refDate, scaleT) {
+  const n = dates.length;
+  const features = [];
+  for(let i=0;i<n;i++){
+    const t = (dates[i]-refDate) / scaleT;
+    const row = [1, t];
+    // Piecewise linear changepoints (regularized via ridge)
+    for(let k=1;k<=nChangepoints;k++){
+      const s = k / (nChangepoints+1);
+      row.push(Math.max(0, t-s));
+    }
+    // Yearly Fourier
+    const ty = (dates[i]-refDate) / (365.25*86400000);
+    for(let k=1;k<=fyOrder;k++){
+      row.push(Math.sin(2*Math.PI*k*ty));
+      row.push(Math.cos(2*Math.PI*k*ty));
+    }
+    // Weekly Fourier
+    const tw = (dates[i]-refDate) / (7*86400000);
+    for(let k=1;k<=fwOrder;k++){
+      row.push(Math.sin(2*Math.PI*k*tw));
+      row.push(Math.cos(2*Math.PI*k*tw));
+    }
+    features.push(row);
+  }
+  return features;
+}
+
+// Ridge regression: (X'X + λI)β = X'y
+function ridgeFit(X, y, lambda=0.1) {
+  const Xt = matT(X);
+  const XtX = matMul(Xt, X);
+  const p = XtX.length;
+  // Add ridge
+  for(let i=0;i<p;i++) XtX[i][i]+=lambda;
+  const Xty = matMul(Xt, y.map(v=>[v])).map(r=>r[0]);
+  return solve(XtX, Xty);
+}
+
+function predict(X, beta) {
+  return X.map(row => row.reduce((s,v,i)=>s+v*beta[i], 0));
+}
+
+// ══════════════════════════════════════════════════════
+//  STATISTICS
+// ══════════════════════════════════════════════════════
+function tTest(residuals) {
+  const n = residuals.length;
+  if(n === 0) return {t:0, p:1, mean:0, sd:0, n:0};
+  if(n === 1) return {t:0, p:1, mean:residuals[0], sd:0, n:1};
+  const mean = residuals.reduce((s,v)=>s+v,0)/n;
+  const sd = Math.sqrt(residuals.reduce((s,v)=>s+(v-mean)**2,0)/(n-1));
+  const se = sd/Math.sqrt(n);
+  if(se===0) return {t:Infinity, p:0};
+  const t = mean/se;
+  // t-dist p-value approximation (two-tailed) via beta regularized
+  const p = 2 * tDist(Math.abs(t), n-1);
+  return {t, p, mean, sd, n};
+}
+
+// Approximation of p-value for t-distribution
+function tDist(t, df) {
+  // Wilson-Hilferty approximation → normal
+  const x = df/(df+t*t);
+  const a = df/2, b = 0.5;
+  return 0.5*incBeta(x, a, b);
+}
+
+function incBeta(x, a, b) {
+  // Continued fraction approximation
+  if(x<0||x>1) return 0;
+  if(x===0) return 0; if(x===1) return 1;
+  const lbeta = lgamma(a)+lgamma(b)-lgamma(a+b);
+  const front = Math.exp(Math.log(x)*a + Math.log(1-x)*b - lbeta) / a;
+  return front * betaCF(x,a,b);
+}
+function betaCF(x,a,b,maxIter=200,eps=3e-7) {
+  const qab=a+b, qap=a+1, qam=a-1;
+  let c=1,d=1-qab*x/qap; if(Math.abs(d)<1e-30)d=1e-30; d=1/d;
+  let h=d;
+  for(let m=1;m<=maxIter;m++){
+    const m2=2*m;
+    let aa=m*(b-m)*x/((qam+m2)*(a+m2));
+    d=1+aa*d; if(Math.abs(d)<1e-30)d=1e-30;
+    c=1+aa/c; if(Math.abs(c)<1e-30)c=1e-30;
+    d=1/d; h*=d*c;
+    aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));
+    d=1+aa*d; if(Math.abs(d)<1e-30)d=1e-30;
+    c=1+aa/c; if(Math.abs(c)<1e-30)c=1e-30;
+    d=1/d; const del=d*c; h*=del;
+    if(Math.abs(del-1)<eps) break;
+  }
+  return h;
+}
+function lgamma(x) {
+  // Lanczos
+  const g=7, c=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,12.507343278686905,-0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+  if(x<0.5) return Math.log(Math.PI/Math.sin(Math.PI*x))-lgamma(1-x);
+  x--;
+  let a=c[0]; const t=x+g+0.5;
+  for(let i=1;i<g+2;i++) a+=c[i]/(x+i);
+  return 0.5*Math.log(2*Math.PI)+(x+0.5)*Math.log(t)-t+Math.log(a);
+}
+
+// Residual std → CI
+function residualStd(yTrue, yPred) {
+  const n=yTrue.length;
+  const res=yTrue.map((v,i)=>v-yPred[i]);
+  const mean=res.reduce((s,v)=>s+v,0)/n;
+  return Math.sqrt(res.reduce((s,v)=>s+(v-mean)**2,0)/(n-1||1));
+}
+
+// z-score for CI
+const Z = {0.95:1.96, 0.90:1.645, 0.80:1.282};
+
+function formatCILevel(ciLevel) {
+  return `${Math.round(ciLevel * 100)}%`;
+}
+
+// ══════════════════════════════════════════════════════
+//  MAIN ANALYSIS
+// ══════════════════════════════════════════════════════
+async function runAnalysis() {
+  if(!dfFull || dfFull.length<60){ log('Need at least 60 data points to run analysis.','err'); return; }
+  clearLog();
+  setProgress(0);
+
+  const btn = document.getElementById('btn-run');
+  const spinner = document.getElementById('run-spinner');
+  const btnLabel = document.getElementById('btn-run-label');
+  btn.disabled = true; spinner.style.display='block'; btnLabel.textContent='Running…';
+
+  await sleep(10);
+
+  try {
+    // Config
+    const eventStart = new Date(document.getElementById('cfg-event-start').value);
+    const eventEnd   = new Date(document.getElementById('cfg-event-end').value);
+    const postDays   = parseInt(document.getElementById('cfg-post-days').value);
+    const modelMode  = document.getElementById('cfg-model').value;
+    const nCP        = parseInt(document.getElementById('cfg-changepoints').value);
+    const fyOrder    = parseInt(document.getElementById('cfg-fourier-yearly').value);
+    const fwOrder    = parseInt(document.getElementById('cfg-fourier-weekly').value);
+    const ciLevel    = parseFloat(document.getElementById('cfg-ci').value);
+    const z = Z[ciLevel] || 1.96;
+
+    if (isNaN(eventStart.getTime()) || isNaN(eventEnd.getTime())) {
+      log('Invalid event dates. Please select a valid start and end date.', 'err');
+      return;
+    }
+    if (eventEnd < eventStart) {
+      log('Event end date must be on or after the event start date.', 'err');
+      return;
+    }
+    if (!Number.isFinite(postDays) || postDays < 1) {
+      log('Post-event days must be a positive number.', 'err');
+      return;
+    }
+
+    const analysisEnd = new Date(eventEnd);
+    analysisEnd.setDate(analysisEnd.getDate() + postDays);
+
+    log(`Event: ${fmt(eventStart)} → ${fmt(eventEnd)}`, 'inf');
+    log(`Post-event window: +${postDays} days until ${fmt(analysisEnd)}`, 'inf');
+    setProgress(5);
+
+    // Split
+    let dfTrain = dfFull.filter(r => r.ds < eventStart);
+    if(modelMode === 'interpolation') {
+      const dfPost = dfFull.filter(r => r.ds > analysisEnd);
+      dfTrain = [...dfTrain, ...dfPost].sort((a,b)=>a.ds-b.ds);
+    }
+    log(`Training set: ${dfTrain.length} days`, 'inf');
+    if(dfTrain.length < 30){ log('Insufficient training data (< 30 days). Adjust event date.','err'); reset(btn,spinner,btnLabel); return; }
+    setProgress(15);
+
+    await sleep(10);
+
+    // Build features
+    const refDate = dfTrain[0].ds;
+    const scaleT  = (dfTrain[dfTrain.length-1].ds - refDate) || 1;
+
+    log(`Building features: ${nCP} changepoints, Fourier yearly=${fyOrder}, weekly=${fwOrder}…`, 'inf');
+    const Xtrain = buildFeatures(dfTrain.map(r=>r.ds), nCP, fyOrder, fwOrder, refDate, scaleT);
+    const ytrain = dfTrain.map(r=>r.y);
+    setProgress(30);
+
+    await sleep(10);
+
+    // Fit
+    log('Fitting ridge regression model…', 'inf');
+    const lambda = 1.0;
+    const beta = ridgeFit(Xtrain, ytrain, lambda);
+    const yHatTrain = predict(Xtrain, beta);
+    const sigma = residualStd(ytrain, yHatTrain);
+    const mae   = ytrain.reduce((s,v,i)=>s+Math.abs(v-yHatTrain[i]),0)/ytrain.length;
+    const rmse  = Math.sqrt(ytrain.reduce((s,v,i)=>s+(v-yHatTrain[i])**2,0)/ytrain.length);
+    log(`Model fitted — MAE: ${mae.toFixed(1)}, RMSE: ${rmse.toFixed(1)}, σ: ${sigma.toFixed(1)}`, 'ok');
+    setProgress(55);
+
+    await sleep(10);
+
+    // Forecast over analysis window
+    const dfActual = dfFull.filter(r => r.ds >= eventStart && r.ds <= analysisEnd);
+    if(dfActual.length === 0){ log('No actual data in the analysis window. Check event dates vs data range.', 'err'); reset(btn,spinner,btnLabel); return; }
+
+    log(`Forecasting ${dfActual.length} days…`, 'inf');
+    const Xforecast = buildFeatures(dfActual.map(r=>r.ds), nCP, fyOrder, fwOrder, refDate, scaleT);
+    const baseline  = predict(Xforecast, beta);
+    setProgress(70);
+
+    await sleep(10);
+
+    // Build analysis table
+    const dfAnalysis = dfActual.map((r,i) => {
+      const bl  = baseline[i];
+      const liftAbs = r.y - bl;
+      const liftPct = bl ? liftAbs/bl*100 : 0;
+      let period = 'post-event';
+      if(r.ds >= eventStart && r.ds <= eventEnd) period = 'event';
+      return {
+        ds:       r.ds,
+        actual:   r.y,
+        baseline: bl,
+        lower95:  bl - z*sigma,
+        upper95:  bl + z*sigma,
+        liftAbs, liftPct, period
+      };
+    });
+
+    // Stats
+    const eventRows = dfAnalysis.filter(r=>r.period==='event');
+    const postRows  = dfAnalysis.filter(r=>r.period==='post-event');
+    const statsEvent = tTest(eventRows.map(r=>r.liftAbs));
+    const statsPost  = tTest(postRows.map(r=>r.liftAbs));
+    const totalLift  = dfAnalysis.reduce((s,r)=>s+r.liftAbs, 0);
+    const avgLiftPct = dfAnalysis.reduce((s,r)=>s+r.liftPct,0)/dfAnalysis.length;
+    const avgEventLiftPct = eventRows.length ? eventRows.reduce((s,r)=>s+r.liftPct,0)/eventRows.length : 0;
+
+    log(`Event window: avg lift ${statsEvent.mean>=0?'+':''}${statsEvent.mean.toFixed(0)} units/day (${avgEventLiftPct>=0?'+':''}${avgEventLiftPct.toFixed(0)}%), p=${statsEvent.p.toFixed(4)}`, statsEvent.p<0.05?'ok':'wrn');
+    log(`Post-event:   avg lift ${statsPost.mean>=0?'+':''}${statsPost.mean.toFixed(0)} units/day, p=${statsPost.p.toFixed(4)}`, statsPost.p<0.05?'ok':'wrn');
+    log(`Total incremental: ${totalLift>=0?'+':''}${Math.round(totalLift).toLocaleString()} over ${dfAnalysis.length} days`, 'ok');
+    setProgress(85);
+
+    await sleep(10);
+
+    analysisResult = { dfAnalysis, dfTrain, dfFull, eventStart, eventEnd, analysisEnd, statsEvent, statsPost, totalLift, avgLiftPct, mae, rmse, sigma, ciLevel };
+
+    // Render results
+    renderResults(analysisResult);
+    document.getElementById('btn-export-png').disabled = false;
+    document.getElementById('btn-export-csv').disabled = false;
+    setProgress(100);
+    log('Analysis complete ✓', 'ok');
+
+    // Nav update
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active','done'));
+    document.getElementById('nav-results').classList.add('active');
+    ['nav-data','nav-event','nav-model'].forEach(id=>document.getElementById(id).classList.add('done'));
+
+    scrollTo('sec-results');
+
+  } catch(err) {
+    log('Error: ' + err.message, 'err');
+    console.error(err);
+  } finally {
+    reset(btn, spinner, btnLabel);
+  }
+}
+
+function reset(btn,spinner,btnLabel){
+  btn.disabled=false; spinner.style.display='none'; btnLabel.textContent='▶ Run Analysis';
+}
+
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function fmt(d){ return d instanceof Date ? d.toISOString().slice(0,10) : d; }
+
+// ══════════════════════════════════════════════════════
+//  RENDER RESULTS
+// ══════════════════════════════════════════════════════
+function renderResults(res) {
+  const {dfAnalysis, dfTrain, dfFull, eventStart, eventEnd, analysisEnd, statsEvent, statsPost, totalLift, avgLiftPct, mae, rmse} = res;
+  const eventRows = dfAnalysis.filter(r=>r.period==='event');
+  const postRows  = dfAnalysis.filter(r=>r.period==='post-event');
+  const avgEvPct  = eventRows.length ? eventRows.reduce((s,r)=>s+r.liftPct,0)/eventRows.length : 0;
+  const avgPoPct  = postRows.length  ? postRows.reduce((s,r)=>s+r.liftPct,0)/postRows.length   : 0;
+
+  document.getElementById('results-badge').textContent = 'Complete ✓';
+  document.getElementById('results-badge').style.color = 'var(--green)';
+
+  let html = `
+  <!-- KPI strip -->
+  <div class="stats-grid" style="margin-bottom:20px">
+    <div class="stat-card">
+      <div class="lbl">Total incremental</div>
+      <div class="val ${totalLift>=0?'pos':'neg'}">${totalLift>=0?'+':''}${Math.round(totalLift).toLocaleString()}</div>
+      <div class="sub">over ${dfAnalysis.length} days</div>
+    </div>
+    <div class="stat-card">
+      <div class="lbl">Event window lift</div>
+      <div class="val ${avgEvPct>=0?'pos':'neg'}">${avgEvPct>=0?'+':''}${avgEvPct.toFixed(1)}%</div>
+      <div class="sub">${eventRows.length} days · p=${statsEvent.p?.toFixed(4)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="lbl">Post-event lift</div>
+      <div class="val ${avgPoPct>=0?'pos':'neg'}">${avgPoPct>=0?'+':''}${avgPoPct.toFixed(1)}%</div>
+      <div class="sub">${postRows.length} days · p=${statsPost.p?.toFixed(4)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="lbl">Training data</div>
+      <div class="val info">${dfTrain.length}</div>
+      <div class="sub">days · MAE ${mae.toFixed(0)} · RMSE ${rmse.toFixed(0)}</div>
+    </div>
+  </div>
+
+  <!-- Significance panels -->
+  <div class="sig-grid" style="margin-bottom:20px">
+    <div class="sig-panel">
+      <div class="title">📅 Event window — ${fmt(eventStart)} → ${fmt(eventEnd)}</div>
+      <div class="sig-row"><span class="k">Avg daily lift</span><span class="v pos">${statsEvent.mean>=0?'+':''}${statsEvent.mean?.toFixed(0)} units/day</span></div>
+      <div class="sig-row"><span class="k">Avg lift %</span><span class="v pos">${avgEvPct>=0?'+':''}${avgEvPct.toFixed(1)}%</span></div>
+      <div class="sig-row"><span class="k">p-value</span><span class="v pv">${statsEvent.p?.toFixed(4)}</span></div>
+      <div class="sig-row"><span class="k">Significance</span><span class="v"><span class="sig-tag ${statsEvent.p<0.05?'':'not'}">${statsEvent.p<0.05?'✅ Significant':'❌ Not significant'}</span></span></div>
+    </div>
+    <div class="sig-panel">
+      <div class="title">📈 Post-event — ${fmt(new Date(eventEnd.getTime()+86400000))} → ${fmt(analysisEnd)}</div>
+      <div class="sig-row"><span class="k">Avg daily lift</span><span class="v pos">${statsPost.mean>=0?'+':''}${statsPost.mean?.toFixed(0)} units/day</span></div>
+      <div class="sig-row"><span class="k">Avg lift %</span><span class="v pos">${avgPoPct>=0?'+':''}${avgPoPct.toFixed(1)}%</span></div>
+      <div class="sig-row"><span class="k">p-value</span><span class="v pv">${statsPost.p?.toFixed(4)}</span></div>
+      <div class="sig-row"><span class="k">Significance</span><span class="v"><span class="sig-tag ${statsPost.p<0.05?'':'not'}">${statsPost.p<0.05?'✅ Significant':'❌ Not significant'}</span></span></div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div style="margin-bottom:20px">
+    <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px">Actual vs Baseline Forecast</div>
+    <div class="chart-wrap chart-wrap-main"><canvas id="chart-main" class="chart-canvas" height="320"></canvas></div>
+  </div>
+  <div style="margin-bottom:4px">
+    <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px">Daily Incremental Lift</div>
+    <div class="chart-wrap chart-wrap-lift"><canvas id="chart-lift" class="chart-canvas" height="160"></canvas></div>
+  </div>
+  `;
+
+  document.getElementById('results-body').innerHTML = html;
+
+  // Charts
+  buildChart(res);
+}
+
+// ══════════════════════════════════════════════════════
+//  CHARTS
+// ══════════════════════════════════════════════════════
+function buildChart(res) {
+  const {dfAnalysis, dfFull, eventStart, eventEnd, ciLevel} = res;
+  const ciLabel = formatCILevel(ciLevel || 0.95);
+
+  // Theme-aware palette
+  const isLight   = currentTheme === 'light';
+  const tickColor = isLight ? '#8896b8' : '#4d6080';
+  const gridColor = isLight ? 'rgba(0,0,0,.06)' : 'rgba(255,255,255,.04)';
+  const ttBg      = isLight ? '#ffffff'  : '#0d1120';
+  const ttBorder  = isLight ? '#d8dcea'  : '#1e2d45';
+  const ttTitle   = isLight ? '#1a2240'  : '#d4ddf5';
+  const ttBody    = isLight ? '#4d5e80'  : '#7a90b8';
+  const legendClr = isLight ? '#4d5e80'  : '#7a90b8';
+
+  // Lookback: 90 days pre-event of actual data
+  const lb = new Date(eventStart); lb.setDate(lb.getDate()-90);
+  const dfPre = dfFull.filter(r => r.ds >= lb && r.ds < eventStart);
+
+  // Combine pre + analysis window for top chart
+  const allDates = [...dfPre.map(r=>fmt(r.ds)), ...dfAnalysis.map(r=>fmt(r.ds))];
+  const allActual = [...dfPre.map(r=>r.y), ...dfAnalysis.map(r=>r.actual)];
+  const nPre = dfPre.length;
+
+  const baselineData = [...new Array(nPre).fill(null), ...dfAnalysis.map(r=>r.baseline)];
+  const lower95Data  = [...new Array(nPre).fill(null), ...dfAnalysis.map(r=>r.lower95)];
+  const upper95Data  = [...new Array(nPre).fill(null), ...dfAnalysis.map(r=>r.upper95)];
+
+  // Event window shading via plugin
+  const eventStartFmt = fmt(eventStart);
+  const eventEndFmt   = fmt(eventEnd);
+
+  const shadePlugin = {
+    id: 'eventShade',
+    afterDraw(chart) {
+      const {ctx, chartArea:{top,bottom}, scales:{x}} = chart;
+      if(!x) return;
+      const x0 = x.getPixelForValue(allDates.indexOf(eventStartFmt));
+      const x1 = x.getPixelForValue(allDates.indexOf(eventEndFmt));
+      if(x0<0||x1<0) return;
+      ctx.save();
+      ctx.fillStyle = 'rgba(234,179,8,0.10)';
+      ctx.fillRect(x0, top, x1-x0, bottom-top);
+      ctx.strokeStyle = 'rgba(234,179,8,0.3)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4,4]);
+      ctx.beginPath(); ctx.moveTo(x0,top); ctx.lineTo(x0,bottom); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1,top); ctx.lineTo(x1,bottom); ctx.stroke();
+      ctx.restore();
+    }
+  };
+
+  if(chartInstance) { chartInstance.destroy(); chartInstance=null; }
+  if(liftChartInstance) { liftChartInstance.destroy(); liftChartInstance=null; }
+
+  const ctx = document.getElementById('chart-main').getContext('2d');
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: allDates,
+      datasets: [
+        {
+          label: 'Actual', data: allActual,
+          borderColor: '#3b82f6', backgroundColor: 'transparent',
+          borderWidth: 2, pointRadius: 0, tension: 0.2
+        },
+        {
+          label: 'Baseline forecast', data: baselineData,
+          borderColor: '#f97316', backgroundColor: 'transparent',
+          borderWidth: 2, borderDash: [6,3], pointRadius: 0, tension: 0.2
+        },
+        {
+          label: `${ciLabel} CI upper`, data: upper95Data,
+          borderColor: 'transparent', backgroundColor: 'rgba(249,115,22,0.12)',
+          borderWidth: 0, pointRadius: 0, fill: '+1', tension: 0.2
+        },
+        {
+          label: `${ciLabel} CI lower`, data: lower95Data,
+          borderColor: 'transparent', backgroundColor: 'rgba(249,115,22,0.12)',
+          borderWidth: 0, pointRadius: 0, fill: false, tension: 0.2
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 600 },
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: {
+          labels: { color: legendClr, font:{size:11,family:'JetBrains Mono'}, boxWidth:20, padding:16 }
+        },
+        tooltip: {
+          backgroundColor: ttBg, borderColor: ttBorder, borderWidth:1,
+          titleColor: ttTitle, bodyColor: ttBody,
+          titleFont:{family:'JetBrains Mono',size:11}, bodyFont:{family:'JetBrains Mono',size:11}
+        }
+      },
+      scales: {
+        x: {
+          ticks:{color: tickColor, font:{size:10,family:'JetBrains Mono'}, maxTicksLimit:12},
+          grid:{color: gridColor}
+        },
+        y: {
+          ticks:{color: tickColor, font:{size:10,family:'JetBrains Mono'}},
+          grid:{color: gridColor}
+        }
+      }
+    },
+    plugins: [shadePlugin]
+  });
+
+  // Lift bar chart
+  const liftLabels = dfAnalysis.map(r=>fmt(r.ds));
+  const liftData   = dfAnalysis.map(r=>r.liftAbs);
+  const liftColors = liftData.map(v=>v>=0?'rgba(34,197,94,0.7)':'rgba(239,68,68,0.7)');
+
+  const ctx2 = document.getElementById('chart-lift').getContext('2d');
+  liftChartInstance = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: liftLabels,
+      datasets:[{
+        label: 'Incremental lift',
+        data: liftData,
+        backgroundColor: liftColors,
+        borderRadius: 3, borderSkipped: false
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      animation:{duration:600},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor: ttBg, borderColor: ttBorder, borderWidth:1,
+          titleColor: ttTitle, bodyColor: ttBody,
+          titleFont:{family:'JetBrains Mono',size:11},bodyFont:{family:'JetBrains Mono',size:11}
+        }
+      },
+      scales:{
+        x:{ticks:{color: tickColor,font:{size:10,family:'JetBrains Mono'},maxTicksLimit:10},grid:{display:false}},
+        y:{ticks:{color: tickColor,font:{size:10,family:'JetBrains Mono'}},grid:{color: gridColor}}
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  EXPORT PNG
+// ══════════════════════════════════════════════════════
+function exportPNG() {
+  if(!chartInstance) return;
+  // Render both charts together on an offscreen canvas
+  const c1 = document.getElementById('chart-main');
+  const c2 = document.getElementById('chart-lift');
+  const w = Math.max(c1.width, c2.width);
+  const h = c1.height + c2.height + 24;
+  const off = document.createElement('canvas');
+  off.width = w*2; off.height = h*2;
+  const ctx = off.getContext('2d');
+  ctx.scale(2,2);
+  ctx.fillStyle = currentTheme === 'light' ? '#f0f2f8' : '#06080f';
+  ctx.fillRect(0,0,w,h);
+  ctx.drawImage(c1,0,0,c1.width,c1.height);
+  ctx.drawImage(c2,0,c1.height+24,c2.width,c2.height);
+  const a = document.createElement('a');
+  a.href = off.toDataURL('image/png');
+  a.download = `incrementality-chart-${new Date().toISOString().slice(0,10)}.png`;
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════
+//  EXPORT CSV
+// ══════════════════════════════════════════════════════
+function exportCSV() {
+  if(!analysisResult) return;
+  const rows = analysisResult.dfAnalysis;
+  const header = 'ds,actual,baseline,lower_95,upper_95,lift_abs,lift_pct,period';
+  const lines = rows.map(r =>
+    [fmt(r.ds), r.actual.toFixed(2), r.baseline.toFixed(2),
+     r.lower95.toFixed(2), r.upper95.toFixed(2),
+     r.liftAbs.toFixed(2), r.liftPct.toFixed(4), r.period].join(',')
+  );
+  const csv = [header, ...lines].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `incrementality-results-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>

@@ -1,99 +1,133 @@
-# Incrementality Analysis with NeuralProphet
+# Incrementality Analysis
 
 ![Python](https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white)
+![HTML](https://img.shields.io/badge/UI-Standalone%20HTML-EA580C)
 ![Jupyter Notebook](https://img.shields.io/badge/Jupyter-Notebook-F37626?logo=jupyter&logoColor=white)
-![NeuralProphet](https://img.shields.io/badge/Forecasting-NeuralProphet-2E8B57)
 ![Status](https://img.shields.io/badge/Use%20Case-ASO%20%26%20UA%20Incrementality-0A66C2)
 
-Measure the true impact of ASO and user acquisition events by training a baseline forecast on historical data, comparing that forecast to actual performance, and quantifying the incremental lift.
-
-The main workflow lives in [`incrementality-analysis-NeuralProphet-1.3.ipynb`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality-analysis-NeuralProphet-1.3.ipynb).
+Forecast-based incrementality analysis for ASO and user acquisition events. This project includes both a `NeuralProphet` notebook workflow and a standalone browser-based HTML app for interactive analysis, chart export, and CSV export.
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Features](#features)
 - [Repository Contents](#repository-contents)
-- [Sample Output](#sample-output)
-- [Requirements](#requirements)
+- [HTML App](#html-app)
+- [Screenshots](#screenshots)
+- [Notebook Workflow](#notebook-workflow)
 - [Expected Input Data](#expected-input-data)
 - [Configuration](#configuration)
-- [How to Run](#how-to-run)
 - [Outputs](#outputs)
+- [How to Run](#how-to-run)
 - [How to Interpret Results](#how-to-interpret-results)
 - [Use Cases](#use-cases)
 - [Notes](#notes)
 
 ## Overview
 
-This notebook follows a forecast-based incrementality method:
+This repository supports the same core incrementality workflow in two formats:
 
-1. Train a `NeuralProphet` model on pre-event history.
-2. Forecast the expected baseline through the event and post-event period.
-3. Compare baseline vs. actual observations.
-4. Estimate absolute lift and percent lift.
-5. Test whether the observed lift is statistically significant.
+1. Train a baseline model on historical data outside the event window.
+2. Forecast expected performance during the event and post-event period.
+3. Compare forecast vs. actuals to estimate incremental lift.
+4. Measure lift in absolute and percentage terms.
+5. Check whether the observed lift is statistically significant.
 
-It is useful for daily time series such as installs, impressions, downloads, revenue, or other app growth metrics.
-
-## Features
-
-- In-notebook dependency installation for a quick start
-- Synthetic demo data for an end-to-end dry run
-- Real-data loading patterns for App Store Connect, Google Play Console, and AppTweak exports
-- Configurable event windows and post-event measurement period
-- `NeuralProphet` baseline forecasting with weekly and yearly seasonality
-- 95% confidence interval handling when quantile outputs are available
-- Incremental lift calculation at the daily and total level
-- One-sample t-test significance check for event and post-event windows
-- Exported chart and CSV output for reporting
+It is designed for daily time series such as installs, downloads, impressions, units, revenue, or similar app growth metrics.
 
 ## Repository Contents
 
-- [`incrementality-analysis-NeuralProphet-1.3.ipynb`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality-analysis-NeuralProphet-1.3.ipynb): main notebook
-- [`incrementality_result.png`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality_result.png): saved visualization
-- [`incrementality_results.csv`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality_results.csv): exported day-level results
+- [`incrementality-analysis-app.html`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality-analysis-app.html): standalone interactive HTML app with theme toggle, charts, exports, and synthetic demo data
+- [`incrementality-analysis-NeuralProphet-1.3.ipynb`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality-analysis-NeuralProphet-1.3.ipynb): notebook workflow using `NeuralProphet`
+- [`incrementality_result.png`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality_result.png): example chart output from the notebook
+- [`incrementality_results.csv`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality_results.csv): example exported results
+- [`screenshots/incrementality-app-before-analysis.jpeg`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/screenshots/incrementality-app-before-analysis.jpeg): HTML app before running an analysis
+- [`screenshots/incrementality-app-after-analysis.jpeg`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/screenshots/incrementality-app-after-analysis.jpeg): HTML app after results are generated
 
-## Sample Output
+## HTML App
 
-### Forecast vs. Actuals
+The standalone app in [`incrementality-analysis-app.html`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality-analysis-app.html) is a single-file browser UI that runs entirely client-side.
 
-![Incrementality chart](incrementality_result.png)
+### What it does
 
-The chart highlights:
+- Loads CSV, TSV, or TXT data directly in the browser
+- Lets you map your own date and metric columns to `ds` and `y`
+- Includes synthetic demo data for a quick dry run
+- Supports `extrapolation` and `interpolation` analysis modes
+- Builds a baseline forecast with trend and Fourier seasonality
+- Calculates event-window and post-event lift
+- Displays significance summaries, confidence intervals, and lift charts
+- Exports chart PNGs and result CSVs
+- Supports light and dark themes
+
+### Why use the HTML app
+
+- No notebook environment is required
+- Faster for stakeholders who want a visual UI
+- Useful for quick scenario checks and screenshot-ready output
+- Easier to share internally as a single HTML file
+
+## Screenshots
+
+### HTML App Before Analysis
+
+![Incrementality HTML app before analysis](screenshots/incrementality-app-before-analysis.jpeg)
+
+Before running the model, the interface is organized to make setup fast and readable:
+
+- The left sidebar acts as the control rail. It contains the event window inputs, model mode selector, changepoint and Fourier controls, confidence interval selector, and the main `Run Analysis` button.
+- The navigation above the controls mirrors the workflow from top to bottom: data source, event config, model params, and results. This makes it easy to understand where you are in the process before any output exists.
+- The top bar keeps the global actions visible without crowding the workspace. Theme switching sits beside export actions, although the export buttons remain inactive until results are available.
+- The main panel starts with the `Data Source` card. This is the drop zone for CSV uploads, and it clearly explains the expected schema: `ds` for date and `y` for the metric. The synthetic demo-data shortcut is placed directly below so a first-time user can test the interface immediately.
+- The `Run Log` card gives immediate operational feedback. In the pre-analysis state it shows a simple readiness message, which helps orient the user and confirms the app is waiting for data and parameters.
+- The `Results` card is intentionally empty before execution. This avoids showing placeholder numbers and instead reserves the space for charts, KPI tiles, and significance panels once the analysis completes.
+- Visually, the pre-analysis screen is designed like a focused control room: narrow left column for inputs, large right column for data, logs, and eventual outputs.
+
+### HTML App After Analysis
+
+![Incrementality HTML app after analysis](screenshots/incrementality-app-after-analysis.jpeg)
+
+After the analysis runs, the same layout turns into a reporting dashboard:
+
+- The `Data Source` card now confirms that data has been loaded by showing a preview table and a badge with row count and date coverage. This lets the user validate the input range without leaving the screen.
+- The `Run Log` becomes a progress narrative. Instead of a static ready message, it records the main modeling steps such as feature building, model fitting, forecasting, and final completion status.
+- The `Results` card changes from an empty placeholder into the core insight area. A KPI strip summarizes total incremental impact, event-window lift, post-event lift, and the size and error profile of the training data.
+- Two significance panels break the findings into `event window` and `post-event` sections. Each panel exposes average daily lift, average lift percent, p-value, and a significance status tag, which helps the user separate immediate impact from lingering effect.
+- The main forecast chart combines historical actuals, baseline forecast, confidence intervals, and a highlighted event window. This gives the user the full context needed to judge whether the modeled baseline and observed lift look credible.
+- The lower bar chart translates the same outcome into daily incremental lift, making it easier to spot which days contributed most to the total effect and whether the post-event tail remains positive.
+- Export actions become meaningful in this state. The user can move directly from analysis to a PNG for reporting or a CSV for downstream review.
+- The after-analysis view therefore functions as both an analysis workspace and a presentation layer: setup, diagnostics, statistical summary, and visuals all remain on one page.
+
+### Notebook Example Output
+
+![Incrementality notebook output](incrementality_result.png)
+
+The notebook and HTML app both visualize:
 
 - historical pre-event trend
-- model baseline forecast
-- 95% confidence band
-- event window
+- baseline forecast
+- confidence interval band
+- highlighted event window
 - daily incremental lift bars
 
-### Exported Results Preview
+## Notebook Workflow
 
-Example rows from [`incrementality_results.csv`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality_results.csv):
+The main notebook lives in [`incrementality-analysis-NeuralProphet-1.3.ipynb`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality-analysis-NeuralProphet-1.3.ipynb).
 
-| ds | actual | baseline | lower_95 | upper_95 | lift_abs | lift_pct | period |
-|---|---:|---:|---:|---:|---:|---:|---|
-| 2024-11-05 | 2588.00 | 1356.19 | 1272.22 | 1520.07 | 1231.81 | 90.83 | event |
-| 2024-11-06 | 2451.00 | 1216.26 | 1125.22 | 1386.07 | 1234.74 | 101.52 | event |
-| 2024-11-07 | 2003.00 | 1142.36 | 1062.67 | 1291.53 | 860.65 | 75.34 | event |
-| 2024-11-08 | 2280.00 | 1186.46 | 1113.86 | 1394.13 | 1093.54 | 92.17 | event |
+### Features
 
-## Requirements
-
-The notebook installs these packages:
-
-- `neuralprophet`
-- `pandas`
-- `numpy`
-- `matplotlib`
-- `scipy`
-
-It uses a standard Python 3 Jupyter kernel and works with `Python 3.11.15`.
+- In-notebook dependency installation
+- Synthetic demo data for an end-to-end example
+- Real-data loading patterns for App Store Connect, Google Play Console, and AppTweak exports
+- Configurable event windows and post-event measurement period
+- `NeuralProphet` baseline forecasting with weekly and yearly seasonality
+- Confidence interval handling
+- Incremental lift calculation at the daily and total level
+- One-sample t-test significance checks
+- Exported chart and CSV output for reporting
 
 ## Expected Input Data
 
-The analysis expects a DataFrame with exactly two columns:
+The analysis expects a dataset with two columns:
 
 - `ds`: date column
 - `y`: daily metric to analyze
@@ -107,53 +141,48 @@ ds,y
 2024-01-03,1602
 ```
 
-The notebook includes commented loading examples for:
+Typical source exports include:
 
-- App Store Connect CSV exports
-- Google Play Console CSV exports
-- AppTweak CSV exports
-
-Synthetic demo data is included by default so you can run the notebook before wiring in production data.
+- App Store Connect
+- Google Play Console
+- AppTweak
+- any CSV with one daily date column and one numeric metric column
 
 ## Configuration
 
-The core parameters are defined in the event setup section:
+Core parameters used by both versions of the workflow:
 
-```python
-EVENT_DATE      = '2024-11-05'
-EVENT_END       = '2024-11-12'
-POST_EVENT_DAYS = 31
-MODEL           = 'extrapolation'
+```text
+Event start date: 2024-11-05
+Event end date:   2024-11-12
+Post-event days:  31
+Model mode:       extrapolation or interpolation
 ```
 
 Parameter guide:
 
-- `EVENT_DATE`: first day of the ASO or UA event
-- `EVENT_END`: last day of the event
-- `POST_EVENT_DAYS`: extra number of days to track lingering impact
-- `MODEL`: analysis mode
+- `Event start date`: first day of the ASO or UA event
+- `Event end date`: last day of the event
+- `Post-event days`: number of extra days to measure lingering impact
+- `Model mode`: analysis approach
 
 Supported modes:
 
 - `extrapolation`: train only on pre-event data and forecast forward
-- `interpolation`: train on pre-event plus far post-event data while excluding the event window
-
-## How to Run
-
-1. Open [`incrementality-analysis-NeuralProphet-1.3.ipynb`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality-analysis-NeuralProphet-1.3.ipynb) in Jupyter or VS Code.
-2. Run the dependency installation cell.
-3. Keep the synthetic demo data or replace it with your own `ds` and `y` dataset.
-4. Set `EVENT_DATE`, `EVENT_END`, `POST_EVENT_DAYS`, and `MODEL`.
-5. Run the notebook through training, forecasting, significance testing, and export.
+- `interpolation`: train on pre-event plus later post-event data while excluding the event window
 
 ## Outputs
 
-The notebook generates:
+Generated outputs include:
 
-- `incrementality_result.png`: visualization of actuals, baseline, confidence interval, and incremental lift
-- `incrementality_results.csv`: exported daily analysis results
+- chart of actuals vs. baseline forecast
+- confidence interval band
+- daily incremental lift bars
+- event-window and post-event significance summaries
+- exported chart PNG
+- exported result CSV
 
-CSV columns:
+Example CSV columns:
 
 - `ds`
 - `actual`
@@ -164,23 +193,41 @@ CSV columns:
 - `lift_pct`
 - `period`
 
+## How to Run
+
+### Standalone HTML App
+
+1. Open [`incrementality-analysis-app.html`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality-analysis-app.html) in a browser.
+2. Upload your CSV file or click the demo-data option.
+3. Map your date and metric columns if needed.
+4. Set the event window, post-event duration, and model parameters.
+5. Run the analysis and export PNG or CSV if needed.
+
+### Notebook
+
+1. Open [`incrementality-analysis-NeuralProphet-1.3.ipynb`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality-analysis-NeuralProphet-1.3.ipynb) in Jupyter or VS Code.
+2. Run the dependency installation cell.
+3. Keep the synthetic demo data or replace it with your own `ds` and `y` dataset.
+4. Set the event parameters.
+5. Run the notebook through training, forecasting, significance testing, and export.
+
 ## How to Interpret Results
 
-Key metrics printed by the notebook:
+Key outputs to watch:
 
 - average daily lift during the event window
 - average lift percentage during the event window
 - p-value for the event window
 - average daily lift after the event
 - p-value for the post-event period
-- total incremental installs across the full analysis window
+- total incremental lift across the analysis window
 
 Interpretation guide:
 
 - positive `lift_abs` means actual performance was above the estimated baseline
-- negative `lift_abs` means actual performance came in below baseline
+- negative `lift_abs` means actual performance was below baseline
 - lower p-values indicate stronger evidence that the observed lift is not random noise
-- a p-value below `0.05` is typically treated as statistically significant in this notebook
+- a p-value below `0.05` is typically treated as statistically significant
 
 ## Use Cases
 
@@ -194,7 +241,7 @@ This workflow is useful for measuring the impact of:
 
 ## Notes
 
+- The HTML app is fully client-side and does not require a backend.
 - The notebook contains a compatibility monkey-patch for `NeuralProphet` with newer `pandas` versions.
-- Holiday effects can be added by uncommenting `model.add_country_holidays(...)`.
 - The workflow assumes daily data with reasonably complete historical coverage.
-- Missing dates are checked before modeling and should be addressed before relying on the results.
+- Missing or malformed dates and metrics should be cleaned before relying on final results.
