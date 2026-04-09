@@ -70,7 +70,7 @@ The standalone app in [`incrementality-analysis-app.html`](https://github.com/am
 
 ### HTML App Before Analysis
 
-![Incrementality HTML app before analysis](Incrementality HTML app after analysis.jpeg)
+![Incrementality HTML app before analysis](https://github.com/amoexuba/incrementality-analysis/blob/main/Incrementality%20HTML%20app%20before%20analysis.jpeg)
 
 Before running the model, the interface is organized to make setup fast and readable:
 
@@ -84,7 +84,7 @@ Before running the model, the interface is organized to make setup fast and read
 
 ### HTML App After Analysis
 
-![Incrementality HTML app after analysis](Incrementality HTML app before analysis.jpeg)
+![Incrementality HTML app after analysis](https://github.com/amoexuba/incrementality-analysis/blob/main/Incrementality%20HTML%20app%20before%20analysis.jpeg)
 
 After the analysis runs, the same layout turns into a reporting dashboard:
 
