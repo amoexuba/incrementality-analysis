@@ -50,7 +50,7 @@ It is useful for daily time series such as installs, impressions, downloads, rev
 
 ## Repository Contents
 
-- [`incrementality-analysis-NeuralProphet-1.3.ipynb`](/Users/amoexuba/VS Code/Python/incrementality-analysis/incrementality-analysis-NeuralProphet-1.3.ipynb): main notebook
+- [`incrementality-analysis-NeuralProphet-1.3.ipynb`](https://github.com/amoexuba/incrementality-analysis/blob/main/incrementality-analysis-NeuralProphet-1.3.ipynb): main notebook
 - [`incrementality_result.png`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality_result.png): saved visualization
 - [`incrementality_results.csv`](/Users/amoexuba/VS%20Code/Python/incrementality-analysis/incrementality_results.csv): exported day-level results
 
