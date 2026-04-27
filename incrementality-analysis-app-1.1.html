@@ -57,7 +57,8 @@
 [data-theme="light"] .nav-item.active { background: rgba(37,99,235,.07); }
 [data-theme="light"] input[type="date"],
 [data-theme="light"] input[type="number"],
-[data-theme="light"] select { color-scheme: light; }
+[data-theme="light"] select,
+[data-theme="light"] textarea { color-scheme: light; }
 
 /* ── Theme toggle button ── */
 .theme-toggle {
@@ -176,7 +177,7 @@ body {
 .ctrl-group { display: flex; flex-direction: column; gap: 8px; }
 .ctrl-row { display: flex; flex-direction: column; gap: 4px; }
 .ctrl-row label { font-size: 11.5px; color: var(--muted2); }
-input[type="date"], input[type="number"], select {
+input[type="date"], input[type="number"], select, textarea {
   background: var(--s2);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -189,7 +190,8 @@ input[type="date"], input[type="number"], select {
   transition: border-color .15s;
   -webkit-appearance: none;
 }
-input:focus, select:focus { border-color: var(--accent); }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+textarea { resize: vertical; min-height: 68px; line-height: 1.6; }
 select option { background: var(--s2); }
 
 .btn {
@@ -488,6 +490,20 @@ tr:hover td { background: rgba(255,255,255,.02); }
           <label>Post-event days to measure</label>
           <input type="number" id="cfg-post-days" value="31" min="1" max="365">
         </div>
+      </div>
+    </div>
+
+    <!-- Holidays / Outliers -->
+    <div class="ctrl-section">
+      <span class="ctrl-label">Holidays / Outliers</span>
+      <div class="ctrl-group">
+        <div class="ctrl-row">
+          <label>Dates to exclude from training</label>
+          <textarea id="cfg-holidays" placeholder="2024-01-01, 2024-12-25&#10;2025-01-01"></textarea>
+        </div>
+      </div>
+      <div style="font-size:10.5px; color:var(--muted); margin-top:6px; line-height:1.5; font-family:var(--mono)">
+        YYYY-MM-DD · comma or newline separated.<br>Excluded from model fitting.
       </div>
     </div>
 
@@ -997,6 +1013,23 @@ function formatCILevel(ciLevel) {
 }
 
 // ══════════════════════════════════════════════════════
+//  HOLIDAY / OUTLIER PARSING
+// ══════════════════════════════════════════════════════
+function parseHolidayDates(str) {
+  if (!str || !str.trim()) return new Set();
+  const entries = str.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+  const valid = new Set();
+  const invalid = [];
+  for (const e of entries) {
+    const d = new Date(e);
+    if (!isNaN(d.getTime())) valid.add(fmt(d));
+    else invalid.push(e);
+  }
+  if (invalid.length) log(`Holidays: skipped invalid entries — ${invalid.join(', ')}`, 'wrn');
+  return valid;
+}
+
+// ══════════════════════════════════════════════════════
 //  MAIN ANALYSIS
 // ══════════════════════════════════════════════════════
 async function runAnalysis() {
@@ -1048,6 +1081,14 @@ async function runAnalysis() {
     if(modelMode === 'interpolation') {
       const dfPost = dfFull.filter(r => r.ds > analysisEnd);
       dfTrain = [...dfTrain, ...dfPost].sort((a,b)=>a.ds-b.ds);
+    }
+    const holidayDates = parseHolidayDates(document.getElementById('cfg-holidays').value);
+    if (holidayDates.size > 0) {
+      const before = dfTrain.length;
+      dfTrain = dfTrain.filter(r => !holidayDates.has(fmt(r.ds)));
+      const removed = before - dfTrain.length;
+      if (removed > 0) log(`Excluded ${removed} holiday/outlier day${removed>1?'s':''} from training`, 'inf');
+      if (removed / before > 0.10) log('Warning: >10% of training days excluded — model quality may be reduced', 'wrn');
     }
     log(`Training set: ${dfTrain.length} days`, 'inf');
     if(dfTrain.length < 30){ log('Insufficient training data (< 30 days). Adjust event date.','err'); reset(btn,spinner,btnLabel); return; }
@@ -1123,7 +1164,7 @@ async function runAnalysis() {
 
     await sleep(10);
 
-    analysisResult = { dfAnalysis, dfTrain, dfFull, eventStart, eventEnd, analysisEnd, statsEvent, statsPost, totalLift, avgLiftPct, mae, rmse, sigma, ciLevel };
+    analysisResult = { dfAnalysis, dfTrain, dfFull, eventStart, eventEnd, analysisEnd, statsEvent, statsPost, totalLift, avgLiftPct, mae, rmse, sigma, ciLevel, holidayDates };
 
     // Render results
     renderResults(analysisResult);
@@ -1231,7 +1272,7 @@ function renderResults(res) {
 //  CHARTS
 // ══════════════════════════════════════════════════════
 function buildChart(res) {
-  const {dfAnalysis, dfFull, eventStart, eventEnd, ciLevel} = res;
+  const {dfAnalysis, dfFull, eventStart, eventEnd, ciLevel, holidayDates = new Set()} = res;
   const ciLabel = formatCILevel(ciLevel || 0.95);
 
   // Theme-aware palette
@@ -1277,6 +1318,18 @@ function buildChart(res) {
       ctx.setLineDash([4,4]);
       ctx.beginPath(); ctx.moveTo(x0,top); ctx.lineTo(x0,bottom); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(x1,top); ctx.lineTo(x1,bottom); ctx.stroke();
+      // Holiday / outlier markers
+      if (holidayDates.size > 0) {
+        ctx.strokeStyle = 'rgba(239,68,68,0.55)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        holidayDates.forEach(hDate => {
+          const hIdx = allDates.indexOf(hDate);
+          if (hIdx < 0) return;
+          const hx = x.getPixelForValue(hIdx);
+          ctx.beginPath(); ctx.moveTo(hx, top); ctx.lineTo(hx, bottom); ctx.stroke();
+        });
+      }
       ctx.restore();
     }
   };
@@ -1406,11 +1459,13 @@ function exportPNG() {
 function exportCSV() {
   if(!analysisResult) return;
   const rows = analysisResult.dfAnalysis;
-  const header = 'ds,actual,baseline,lower_95,upper_95,lift_abs,lift_pct,period';
+  const hDates = analysisResult.holidayDates || new Set();
+  const header = 'ds,actual,baseline,lower_95,upper_95,lift_abs,lift_pct,period,is_outlier';
   const lines = rows.map(r =>
     [fmt(r.ds), r.actual.toFixed(2), r.baseline.toFixed(2),
      r.lower95.toFixed(2), r.upper95.toFixed(2),
-     r.liftAbs.toFixed(2), r.liftPct.toFixed(4), r.period].join(',')
+     r.liftAbs.toFixed(2), r.liftPct.toFixed(4), r.period,
+     hDates.has(fmt(r.ds))].join(',')
   );
   const csv = [header, ...lines].join('\n');
   const blob = new Blob([csv], {type:'text/csv'});
